@@ -1,4 +1,4 @@
-const owner = "0xb5ad0aba56ba281cb4ea592669d276529c78ebef";
+const owner = "0x6d9248df52fed8d12b0147fb7cda478e3e53710f";
 const admin = "0xde485812e28824e542b9c2270b6b8ed9232b7d0b";
 const curvePool = "0x7f90122BF0700F9E7e1F688fe926940E8839F353";
 const dpxWethLp = "0x0C1Cf6883efA1B496B01f654E247B9b419873054";
