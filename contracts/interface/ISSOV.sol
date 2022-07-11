@@ -13,7 +13,7 @@ interface ISSOV {
         uint256 amount,
         address user
     ) external returns (uint256 tokenId);
-    
+
     function calculatePremium(
         uint256 _strike,
         uint256 _amount,
@@ -36,6 +36,6 @@ interface ISSOV {
         external
         view
         returns (uint256 start, uint256 end);
-    
+
     function addToContractWhitelist(address owner) external;
 }

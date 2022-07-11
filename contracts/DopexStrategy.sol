@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
 
-
 /// @summary: Contract stakes DPX/WETH lp claim rewards weekly, converts DPX claimed to USDC, adds USDC
 ///           to curve 2pool, gets 2CRV, uses 2CRV to purchase puts and write puts.
 /// @title: Dopex Strategy
@@ -26,10 +25,16 @@ error DopexStrategy_ContractHasNoUsdcToken();
 
 contract DopexStrategy {
     using SafeERC20 for IERC20;
-    event StrategyExecuted(uint contractDpxBalanceBeforeTx, uint contractUsdcBalanceBeforeTx, uint contract2PoolBalanceBeforeTx, uint purchaseAmount, uint writeAmount);
+    event StrategyExecuted(
+        uint256 contractDpxBalanceBeforeTx,
+        uint256 contractUsdcBalanceBeforeTx,
+        uint256 contract2PoolBalanceBeforeTx,
+        uint256 purchaseAmount,
+        uint256 writeAmount
+    );
 
     // s indicating variables are stored in storage
-    uint public s_timer; 
+    uint256 public s_timer;
     address public s_owner;
 
     I2Pool public immutable pool;
@@ -41,9 +46,12 @@ contract DopexStrategy {
     address constant weth = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
     address constant twoPool = 0x7f90122BF0700F9E7e1F688fe926940E8839F353;
     address constant DpxEthLp = 0x0C1Cf6883efA1B496B01f654E247B9b419873054;
-    
 
-    constructor(address _dpxEthLpFarm, address _sushiRouter, address _curvePool) {
+    constructor(
+        address _dpxEthLpFarm,
+        address _sushiRouter,
+        address _curvePool
+    ) {
         s_owner = msg.sender;
 
         pool = I2Pool(_curvePool);
@@ -60,14 +68,17 @@ contract DopexStrategy {
     /// - this contract must have been approved _amount
     /// - set timer if it's the first interaction
     /// @param _amount amount of DPX/WETH pair
-    function deposit(uint _amount) external {
-        if(_amount > IERC20(DpxEthLp).balanceOf(msg.sender)) revert DopexStrategy_AmountAboveBalance();
+    function deposit(uint256 _amount) external {
+        if (_amount > IERC20(DpxEthLp).balanceOf(msg.sender))
+            revert DopexStrategy_AmountAboveBalance();
         IERC20(DpxEthLp).safeTransferFrom(msg.sender, address(this), _amount);
 
         dpxEthLpFarm.stake(_amount);
 
         // making this unchecked to save gas used for checking arithmetic operations
-        unchecked { if(s_timer == 0) s_timer =  block.timestamp + 7 days; } 
+        unchecked {
+            if (s_timer == 0) s_timer = block.timestamp + 7 days;
+        }
     }
 
     /// @notice runs strategy
@@ -78,77 +89,118 @@ contract DopexStrategy {
     /// @param _curveSlippage minimum slippage when using the _get2poolToken function....i.e 95% will be 950
     /// @param _purchasePercent percentage you wish to purchase put with excluding premium and total fee
     /// @param _ssovAddress address of SSOV to purchase and write puts
-    function runStrategy(uint _strikeIndex, uint _sushiSlippage, uint _curveSlippage, uint _purchasePercent, address _ssovAddress) external {
-        if(s_timer > block.timestamp) revert DopexStrategy_NotUpToAWeek();
+    function runStrategy(
+        uint256 _strikeIndex,
+        uint256 _sushiSlippage,
+        uint256 _curveSlippage,
+        uint256 _purchasePercent,
+        address _ssovAddress
+    ) external {
+        if (s_timer > block.timestamp) revert DopexStrategy_NotUpToAWeek();
         dpxEthLpFarm.claim();
 
-        uint contractDpxBalanceBeforeTx = _getBalance(dpx);
+        uint256 contractDpxBalanceBeforeTx = _getBalance(dpx);
         _swap(_sushiSlippage);
 
-        uint contractUsdcBalanceBeforeTx = _getBalance(usdc);
-        _get2poolToken(IERC20(usdc).balanceOf(address(this)),  _curveSlippage);
+        uint256 contractUsdcBalanceBeforeTx = _getBalance(usdc);
+        _get2poolToken(IERC20(usdc).balanceOf(address(this)), _curveSlippage);
 
-        uint contract2PoolBalanceBeforeTx = _getBalance(twoPool);
-        (uint purchaseAmount, uint writeAmount) = _excuteStrategy(_ssovAddress,  _strikeIndex,  _purchasePercent);
+        uint256 contract2PoolBalanceBeforeTx = _getBalance(twoPool);
+        (uint256 purchaseAmount, uint256 writeAmount) = _excuteStrategy(
+            _ssovAddress,
+            _strikeIndex,
+            _purchasePercent
+        );
 
         unchecked {
             s_timer = block.timestamp + 7 days;
         }
 
-        emit StrategyExecuted(contractDpxBalanceBeforeTx, contractUsdcBalanceBeforeTx, contract2PoolBalanceBeforeTx, purchaseAmount, writeAmount);
+        emit StrategyExecuted(
+            contractDpxBalanceBeforeTx,
+            contractUsdcBalanceBeforeTx,
+            contract2PoolBalanceBeforeTx,
+            purchaseAmount,
+            writeAmount
+        );
     }
-    
+
     /// @notice withdraws token
     /// - only owner can call this function
     /// @param _token token to withdraw from
     /// @param _to receivers address
     /// @param _amount amount to withdraw
-    function withdraw(address _token, address _to, uint _amount) external onlyOwner {
-        if(_amount > IERC20(_token).balanceOf(address(this))) revert DopexStrategy_AmountAboveBalance();
+    function withdraw(
+        address _token,
+        address _to,
+        uint256 _amount
+    ) external onlyOwner {
+        if (_amount > IERC20(_token).balanceOf(address(this)))
+            revert DopexStrategy_AmountAboveBalance();
         IERC20(_token).safeTransfer(_to, _amount);
     }
-    
+
     /// @notice checks this contract balance
     /// - checks balance and revert if equals to 0
     /// @param _token contract address to get balance from
-    function _getBalance(address _token) view internal returns(uint contractBalance) {
+    function _getBalance(address _token)
+        internal
+        view
+        returns (uint256 contractBalance)
+    {
         contractBalance = IERC20(_token).balanceOf(address(this));
-        if(contractBalance < 0 && _token == dpx) revert DopexStrategy_ContractHasNoDpxToken();
-        if(contractBalance < 0 && _token == usdc) revert DopexStrategy_ContractHasNoUsdcToken();
-        if(contractBalance < 0 && _token == twoPool) revert DopexStrategy_ContractHasNo2crvToken();
+        if (contractBalance < 0 && _token == dpx)
+            revert DopexStrategy_ContractHasNoDpxToken();
+        if (contractBalance < 0 && _token == usdc)
+            revert DopexStrategy_ContractHasNoUsdcToken();
+        if (contractBalance < 0 && _token == twoPool)
+            revert DopexStrategy_ContractHasNo2crvToken();
     }
 
     /// @notice swaps DPX to USDC
     /// @param _sushiSlippage minimum slippage when using the _swap function....i.e 95% will be 950
-    function _swap(uint _sushiSlippage) internal{
+    function _swap(uint256 _sushiSlippage) internal {
         address[] memory path = new address[](3);
         path[0] = dpx;
         path[1] = weth;
         path[2] = usdc;
 
-        uint[] memory amountsMin = router.getAmountsOut(IERC20(dpx).balanceOf(address(this)), path);
-        uint sushiSlippage = (amountsMin[path.length - 1] * _sushiSlippage) / 1000;
+        uint256[] memory amountsMin = router.getAmountsOut(
+            IERC20(dpx).balanceOf(address(this)),
+            path
+        );
+        uint256 sushiSlippage = (amountsMin[path.length - 1] * _sushiSlippage) /
+            1000;
 
-        router.swapExactTokensForTokens(IERC20(dpx).balanceOf(address(this)), sushiSlippage, path, address(this), block.timestamp);
+        router.swapExactTokensForTokens(
+            IERC20(dpx).balanceOf(address(this)),
+            sushiSlippage,
+            path,
+            address(this),
+            block.timestamp
+        );
     }
 
-    /// @notice add contract USDC to curve 2pool 
+    /// @notice add contract USDC to curve 2pool
     /// @param _contractUsdcBalance USDC balance of this contract
     /// @param _curveSlippage minimum slippage when using the _get2poolToken function....i.e 95% will be 950
-    function _get2poolToken(uint _contractUsdcBalance, uint _curveSlippage) internal {
-        uint[2] memory deposit_amounts;
-        uint amountMin;
+    function _get2poolToken(
+        uint256 _contractUsdcBalance,
+        uint256 _curveSlippage
+    ) internal {
+        uint256[2] memory deposit_amounts;
+        uint256 amountMin;
 
         if (pool.coins(0) == usdc) {
             deposit_amounts[0] = _contractUsdcBalance;
             deposit_amounts[1] = 0;
-        }else if (pool.coins(1) == usdc) {
+        } else if (pool.coins(1) == usdc) {
             deposit_amounts[0] = 0;
             deposit_amounts[1] = _contractUsdcBalance;
         }
 
         amountMin = pool.calc_token_amount(deposit_amounts, true);
-        uint curveSlippage = (amountMin * _curveSlippage) / 1000;
+        uint256 curveSlippage = (amountMin * _curveSlippage) / 1000;
         pool.add_liquidity(deposit_amounts, curveSlippage);
     }
 
@@ -158,32 +210,55 @@ contract DopexStrategy {
     /// @param _ssovAddress address of SSOV to purchase and write puts
     /// @param _strikeIndex strikeIndex Index of strike
     /// @param _purchasePercent percentage you wish to purchase put with excluding premium and total fee
-    function _excuteStrategy(address _ssovAddress, uint _strikeIndex, uint _purchasePercent) internal returns(uint purchaseAmount, uint writeAmount) {
-        uint epoch = ISSOV(_ssovAddress).currentEpoch();
+    function _excuteStrategy(
+        address _ssovAddress,
+        uint256 _strikeIndex,
+        uint256 _purchasePercent
+    ) internal returns (uint256 purchaseAmount, uint256 writeAmount) {
+        uint256 epoch = ISSOV(_ssovAddress).currentEpoch();
         (, uint256 epochExpiry) = ISSOV(_ssovAddress).getEpochTimes(epoch);
 
         if (block.timestamp > epochExpiry) revert DopexStrategy_EpochExpired();
 
-        uint[] memory strikes = ISSOV(_ssovAddress).getEpochStrikes(epoch);
+        uint256[] memory strikes = ISSOV(_ssovAddress).getEpochStrikes(epoch);
         if (strikes[_strikeIndex] <= 0) revert DopexStrategy_InvalidStike();
 
-        purchaseAmount = (IERC20(twoPool).balanceOf(address(this)) * _purchasePercent) / 1000;
-        uint premium = ISSOV(_ssovAddress).calculatePremium(strikes[_strikeIndex], purchaseAmount, epochExpiry);
+        purchaseAmount =
+            (IERC20(twoPool).balanceOf(address(this)) * _purchasePercent) /
+            1000;
+        uint256 premium = ISSOV(_ssovAddress).calculatePremium(
+            strikes[_strikeIndex],
+            purchaseAmount,
+            epochExpiry
+        );
 
-        uint fee = ISSOV(_ssovAddress).calculatePurchaseFees(strikes[_strikeIndex], purchaseAmount);
-        if (premium + fee > IERC20(twoPool).balanceOf(address(this))) revert DopexStrategy_ReducePurchasePercent();
+        uint256 fee = ISSOV(_ssovAddress).calculatePurchaseFees(
+            strikes[_strikeIndex],
+            purchaseAmount
+        );
+        if (premium + fee > IERC20(twoPool).balanceOf(address(this)))
+            revert DopexStrategy_ReducePurchasePercent();
 
-        IERC20(twoPool).safeApprove(_ssovAddress, IERC20(twoPool).balanceOf(address(this)));
-        ISSOV(_ssovAddress).purchase(_strikeIndex, purchaseAmount, address(this));
+        IERC20(twoPool).safeApprove(
+            _ssovAddress,
+            IERC20(twoPool).balanceOf(address(this))
+        );
+        ISSOV(_ssovAddress).purchase(
+            _strikeIndex,
+            purchaseAmount,
+            address(this)
+        );
 
-        uint contract2crvBalanceLeft = IERC20(twoPool).balanceOf(address(this));
+        uint256 contract2crvBalanceLeft = IERC20(twoPool).balanceOf(
+            address(this)
+        );
 
-        if(contract2crvBalanceLeft > 0) writeAmount = contract2crvBalanceLeft;
+        if (contract2crvBalanceLeft > 0) writeAmount = contract2crvBalanceLeft;
         ISSOV(_ssovAddress).deposit(_strikeIndex, writeAmount, address(this));
     }
 
     modifier onlyOwner() {
-        if(msg.sender == s_owner) revert DopexStrategy_NotOwner();
+        if (msg.sender == s_owner) revert DopexStrategy_NotOwner();
         _;
     }
 }
