@@ -1,0 +1,94 @@
+@import url(https://fonts.googleapis.com/icon?family=Material+Icons);
+
+:root {
+  --bg-primary: #002eff;
+}
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@keyframes fade-in {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+html {
+  font-size: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: #fff;
+  background: #000;
+}
+
+input, button {
+  transition: 0.2s;
+} 
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input {
+  border-radius: 0.313rem;
+  background: transparent;
+}
+
+input:focus {
+  outline: none;
+  background: #fff;
+}
+
+i {
+  font-family: 'Material Icons';
+  font-style: normal;
+}
+
+img {
+  max-width: 100%;
+}
+
+button {
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: inherit;
+  font-weight: 600;
+  padding: 0.375rem 0.5rem;
+  border-radius: 0.313rem;
+  font-size: 0.875rem;
+  letter-spacing: 0.01rem;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+
+.btn-primary {
+  background: var(--bg-primary);
+}
+
+.btn-primary:hover {
+  background: rgba(0, 46, 255, 0.7);
+}
+
+.fade-in {
+  animation: fade-in 0.2s ease-in;
+}

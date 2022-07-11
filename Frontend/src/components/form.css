@@ -1,0 +1,102 @@
+.deposit {
+  margin-top: min(12%, 12rem) !important;
+  margin-bottom: min(10%, 5rem) !important;
+  display: flex;
+  flex-direction: column;
+  margin: 0 auto;
+  width: 80%;
+  background: rgba(21, 21, 21, 1);
+  padding: 0.75rem;
+  max-width: 343px;
+  border-radius: 1rem;
+}
+
+input[type="number"], input[type="text"] {
+  height: 39px;
+  padding: 0 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(30, 30, 30, 1);
+  color: #fff;
+}
+
+input[type="number"]:focus, input[type="text"]:focus {
+  color: #000;
+}
+
+.deposit .btn-primary {
+  height: 40px;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  background: rgba(21, 21, 21, 1);
+  border-radius: 0.313rem;
+  padding-right: 0.25rem;
+}
+
+.account button {
+  padding: 0.375rem 0.5rem;
+  background: rgba(21, 21, 21, 1);
+  border: 1px solid rgba(21, 21, 21, 1);
+}
+
+.account button:hover {
+  border-color: rgba(34, 225, 255, 1);
+}
+
+.account div {
+  padding: 0.5em;
+  background: rgba(62, 62, 62, 1);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+}
+
+.account div span {
+  color: rgba(142, 142, 142, 1);
+}
+
+.select-field {
+  padding: 0 1rem;
+  height: 39px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  background: rgba(21, 21, 21, 1);
+  border: 1px solid rgba(30, 30, 30, 1);
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+}
+
+.select-field.open i {
+  transform: rotate(180deg);
+}
+
+.select-field .options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  background: rgba(21, 21, 21, 1);
+  padding: 0.5rem 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+}
+
+.select-field .options span {
+  padding: 0.375rem 1rem;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.select-field .options span.active {
+  background-color: rgba(0, 46, 255, 0.08);
+}
+
+.select-field .options span:hover {
+  background-color: rgba(0, 46, 255, 0.08);
+}

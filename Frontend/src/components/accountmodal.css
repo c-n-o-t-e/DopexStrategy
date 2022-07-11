@@ -1,0 +1,112 @@
+.shim {
+  position: absolute;
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)),
+    radial-gradient(
+      100% 197.75% at 0 0,
+      rgba(34, 225, 255, 0.27) 0,
+      rgba(9, 10, 12, 0.21) 37.02%,
+      rgba(0, 46, 255, 0.03) 100%
+    );
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  display: flex;
+  align-items: center;
+  padding: 0 0.5rem;
+  z-index: 100;
+  overflow-x: hidden;
+}
+
+.modal {
+  width: 400px;
+  margin: 0 auto;
+  padding: 1rem;
+  background: rgba(21, 21, 21, 1);
+  border-radius: 1rem;
+  box-shadow: rgb(0 0 0 / 20%) 0px 11px 15px -7px,
+    rgb(0 0 0 / 14%) 0px 24px 38px 3px, rgb(0 0 0 / 12%) 0px 9px 46px 8px;
+}
+
+.modal .top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.modal .top h3 {
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 500;
+}
+
+.modal .top button {
+  height: max-content;
+  padding: 0;
+}
+
+.modal .top i {
+  font-size: 1.5rem;
+  color: rgba(142, 142, 142, 1);
+}
+
+.modal .account-info {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.modal .account-info .btn-copy {
+  margin-left: auto;
+}
+
+.modal .account-info .btn {
+  background: rgba(62, 62, 62, 0.1);
+  border: 1px solid rgba(62, 62, 62, 0.2);
+  font-size: 0.75rem;
+  height: 24px;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.75rem;
+  font-weight: 500;
+}
+
+.modal .account-info .btn:nth-child(2) {
+  margin-left: auto;
+}
+
+.modal .account-info .btn:last-child {
+  margin-left: 0.5rem;
+}
+
+.modal .account-info .btn:last-child a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.modal .account-info .btn:hover {
+  border-color: rgba(62, 62, 62, 0.4);
+}
+
+.modal .account-info .address {
+  border: 1px solid rgba(62, 62, 62, 1);
+  border-radius: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  background: rgba(30, 30, 30, 1);
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.modal .btn-disconnect {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 97, 125, 0.2);
+  background: rgba(255, 97, 125, 0.1);
+}
+
+.modal .btn-disconnect:hover {
+  border-color: rgba(255, 97, 125, 0.4);
+}

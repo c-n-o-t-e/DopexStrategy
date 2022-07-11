@@ -15,6 +15,7 @@
     "prettier-plugin-solidity": "^1.0.0-dev.22"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^1.0.1"
+    "@nomicfoundation/hardhat-toolbox": "^1.0.1",
+    "@nomiclabs/hardhat-etherscan": "^3.1.0"
   }
 }
