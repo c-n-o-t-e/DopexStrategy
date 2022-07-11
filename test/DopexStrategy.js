@@ -19,7 +19,7 @@ describe("DopexStrategy", function () {
     dopexStrategy;
 
   beforeEach(async () => {
-    await fork_network(17417919);
+    await fork_network(17423541); // always get recent block number due to missing trie node error
     [user] = await ethers.getSigners();
     sevenDays = 7 * 24 * 60 * 60;
 
