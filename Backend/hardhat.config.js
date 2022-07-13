@@ -1,3 +1,4 @@
+require("dotenv").config();
 require("@nomicfoundation/hardhat-toolbox");
 
 module.exports = {
@@ -12,12 +13,10 @@ module.exports = {
     arbitrum_testnet: {
       url: "https://rinkeby.arbitrum.io/rpc",
       network_id: 421611,
-      accounts: [
-        "0xbf24ac873f8118ac8344c4ed01d169accabb2893642ce62de949be7918ad17c1",
-      ],
+      accounts: [process.env.privateKey],
     },
   },
   etherscan: {
-    apiKey: "7YNIM4192HFF7NXSK1SWWBIN3ZI2EYAQCK",
+    apiKey: process.env.apiKey,
   },
 };
