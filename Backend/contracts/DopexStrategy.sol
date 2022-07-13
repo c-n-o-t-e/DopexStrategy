@@ -17,6 +17,8 @@ error DopexStrategy_NotOwner();
 error DopexStrategy_EpochExpired();
 error DopexStrategy_NotUpToAWeek();
 error DopexStrategy_InvalidStike();
+error DopexStrategy_InvalidAmount();
+error DopexStrategy_InvalidAddress();
 error DopexStrategy_AmountAboveBalance();
 error DopexStrategy_ReducePurchasePercent();
 error DopexStrategy_ContractHasNoDpxToken();
@@ -69,10 +71,12 @@ contract DopexStrategy {
     /// - set timer if it's the first interaction
     /// @param _amount amount of DPX/WETH pair
     function deposit(uint256 _amount) external {
+        if (_amount == 0) revert DopexStrategy_InvalidAmount();
+
         if (_amount > IERC20(DpxEthLp).balanceOf(msg.sender))
             revert DopexStrategy_AmountAboveBalance();
-        IERC20(DpxEthLp).safeTransferFrom(msg.sender, address(this), _amount);
 
+        IERC20(DpxEthLp).safeTransferFrom(msg.sender, address(this), _amount);
         dpxEthLpFarm.stake(_amount);
 
         // making this unchecked to save gas used for checking arithmetic operations
@@ -95,7 +99,12 @@ contract DopexStrategy {
         uint256 _curveSlippage,
         uint256 _purchasePercent,
         address _ssovAddress
-    ) external {
+    ) external onlyOwner {
+        if (_sushiSlippage == 0 || _curveSlippage == 0 || _purchasePercent == 0)
+            revert DopexStrategy_InvalidAmount();
+
+        if (_ssovAddress == address(0)) revert DopexStrategy_InvalidAddress();
+
         if (s_timer > block.timestamp) revert DopexStrategy_NotUpToAWeek();
         dpxEthLpFarm.claim();
 
@@ -135,8 +144,14 @@ contract DopexStrategy {
         address _to,
         uint256 _amount
     ) external onlyOwner {
+        if (_token == address(0) || _to == address(0))
+            revert DopexStrategy_InvalidAddress();
+
+        if (_amount == 0) revert DopexStrategy_InvalidAmount();
+
         if (_amount > IERC20(_token).balanceOf(address(this)))
             revert DopexStrategy_AmountAboveBalance();
+
         IERC20(_token).safeTransfer(_to, _amount);
     }
 
@@ -257,8 +272,13 @@ contract DopexStrategy {
         ISSOV(_ssovAddress).deposit(_strikeIndex, writeAmount, address(this));
     }
 
+    function changeOwner(address _newOwner) external onlyOwner {
+        if (_newOwner == address(0)) revert DopexStrategy_InvalidAddress();
+        s_owner = _newOwner;
+    }
+
     modifier onlyOwner() {
-        if (msg.sender == s_owner) revert DopexStrategy_NotOwner();
+        if (msg.sender != s_owner) revert DopexStrategy_NotOwner();
         _;
     }
 }

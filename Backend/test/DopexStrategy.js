@@ -8,7 +8,7 @@ const addresses = require("./addresses");
 const { fork_network, bne } = require("./network_fork");
 
 describe("DopexStrategy", function () {
-  let user,
+  let deployer,
     owner,
     admin,
     sevenDays,
@@ -19,8 +19,8 @@ describe("DopexStrategy", function () {
     dopexStrategy;
 
   beforeEach(async () => {
-    await fork_network(17439285); // always get recent block number due to missing trie node error
-    [user] = await ethers.getSigners();
+    await fork_network(17548140); // always get recent block number due to missing trie node error
+    [deployer] = await ethers.getSigners();
     sevenDays = 7 * 24 * 60 * 60;
 
     DopexStrategy = await ethers.getContractFactory("DopexStrategy");
@@ -53,7 +53,7 @@ describe("DopexStrategy", function () {
   describe("deposit(uint256 _amount)", async () => {
     it("Should fail if user amount to deposit is higher than token balance", async function () {
       await expect(
-        dopexStrategy.connect(user).deposit(userBalancer)
+        dopexStrategy.connect(deployer).deposit(userBalancer)
       ).to.revertedWithCustomError(
         dopexStrategy,
         `DopexStrategy_AmountAboveBalance`
@@ -95,6 +95,22 @@ describe("DopexStrategy", function () {
   });
 
   describe("runStrategy(uint _strikeIndex, uint _sushiSlippage, uint _curveSlippage, uint _purchasePercent, address _ssovAddress)", async () => {
+    it("Should fail if caller is not owner", async function () {
+      await deposit(
+        dpxWethLp,
+        dpxEthLpFarm,
+        dopexStrategy,
+        owner,
+        admin,
+        userBalancer
+      );
+
+      await expect(
+        dopexStrategy
+          .connect(admin)
+          .runStrategy(0, 800, 800, 800, addresses.btcWeeklyPuts)
+      ).to.revertedWithCustomError(dopexStrategy, `DopexStrategy_NotOwner`);
+    });
     it("Should fail if not up to a week", async function () {
       await deposit(
         dpxWethLp,
@@ -107,7 +123,7 @@ describe("DopexStrategy", function () {
 
       await expect(
         dopexStrategy
-          .connect(user)
+          .connect(deployer)
           .runStrategy(0, 800, 800, 800, addresses.btcWeeklyPuts)
       ).to.revertedWithCustomError(dopexStrategy, `DopexStrategy_NotUpToAWeek`);
     });
@@ -126,7 +142,7 @@ describe("DopexStrategy", function () {
 
       await expect(
         dopexStrategy
-          .connect(user)
+          .connect(deployer)
           .runStrategy(0, 800, 800, 800, addresses.btcWeeklyPuts)
       ).to.revertedWithCustomError(dopexStrategy, `DopexStrategy_EpochExpired`);
     });
@@ -148,7 +164,7 @@ describe("DopexStrategy", function () {
       .addToContractWhitelist(dopexStrategy.address);
 
     await dopexStrategy
-      .connect(user)
+      .connect(deployer)
       .runStrategy(0, 800, 800, 800, addresses.btcWeeklyPuts);
   });
 });
