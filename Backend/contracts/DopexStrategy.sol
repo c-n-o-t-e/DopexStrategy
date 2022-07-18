@@ -258,7 +258,7 @@ contract DopexStrategy is ERC721TokenReceiver {
             revert DopexStrategy_NoAvailableCollateral();
         uint256 contractBalance = IERC20(twoPool).balanceOf(address(this));
 
-        if (availableCollateral >= contractBalance) {
+        if (availableCollateral > contractBalance) {
             // get some options the contract can buy
             uint256 optionUserCanAfford = (contractBalance *
                 ISSOV(_ssovAddress).getCollateralPrice() *
