@@ -7,11 +7,12 @@
 
 pragma solidity ^0.8.9;
 
+import "./SafeERC20.sol";
 import "./interface/ISSOV.sol";
 import "./interface/I2Pool.sol";
 import "./interface/IDpxEthLpFarm.sol";
 import "./interface/ISushiSwapRouter.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "./interface/IERC721TokenReceiver.sol";
 
 error DopexStrategy_NotOwner();
 error DopexStrategy_EpochExpired();
@@ -22,16 +23,18 @@ error DopexStrategy_InvalidAddress();
 error DopexStrategy_AmountAboveBalance();
 error DopexStrategy_ReducePurchasePercent();
 error DopexStrategy_ContractHasNoDpxToken();
+error DopexStrategy_NoAvailableCollateral();
 error DopexStrategy_ContractHasNo2crvToken();
 error DopexStrategy_ContractHasNoUsdcToken();
 
-contract DopexStrategy {
+contract DopexStrategy is ERC721TokenReceiver {
     using SafeERC20 for IERC20;
     event StrategyExecuted(
-        uint256 contractDpxBalanceBeforeTx,
+        uint256 indexed contractDpxBalanceBeforeTx,
         uint256 contractUsdcBalanceBeforeTx,
         uint256 contract2PoolBalanceBeforeTx,
-        uint256 purchaseAmount,
+        uint256 amountUsedForPurchase,
+        uint256 purchaseOption,
         uint256 writeAmount
     );
 
@@ -91,16 +94,14 @@ contract DopexStrategy {
     /// @param _strikeIndex strikeIndex Index of strike
     /// @param _sushiSlippage minimum slippage when using the _swap function....i.e 95% will be 950
     /// @param _curveSlippage minimum slippage when using the _get2poolToken function....i.e 95% will be 950
-    /// @param _purchasePercent percentage you wish to purchase put with excluding premium and total fee
     /// @param _ssovAddress address of SSOV to purchase and write puts
     function runStrategy(
         uint256 _strikeIndex,
         uint256 _sushiSlippage,
         uint256 _curveSlippage,
-        uint256 _purchasePercent,
         address _ssovAddress
     ) external onlyOwner {
-        if (_sushiSlippage == 0 || _curveSlippage == 0 || _purchasePercent == 0)
+        if (_sushiSlippage == 0 || _curveSlippage == 0)
             revert DopexStrategy_InvalidAmount();
 
         if (_ssovAddress == address(0)) revert DopexStrategy_InvalidAddress();
@@ -115,11 +116,11 @@ contract DopexStrategy {
         _get2poolToken(IERC20(usdc).balanceOf(address(this)), _curveSlippage);
 
         uint256 contract2PoolBalanceBeforeTx = _getBalance(twoPool);
-        (uint256 purchaseAmount, uint256 writeAmount) = _excuteStrategy(
-            _ssovAddress,
-            _strikeIndex,
-            _purchasePercent
-        );
+        (
+            uint256 purchaseOption,
+            uint256 writeAmount,
+            uint256 amountUsedForPurchase
+        ) = _excuteStrategy(_ssovAddress, _strikeIndex);
 
         unchecked {
             s_timer = block.timestamp + 7 days;
@@ -129,7 +130,8 @@ contract DopexStrategy {
             contractDpxBalanceBeforeTx,
             contractUsdcBalanceBeforeTx,
             contract2PoolBalanceBeforeTx,
-            purchaseAmount,
+            amountUsedForPurchase,
+            purchaseOption,
             writeAmount
         );
     }
@@ -224,43 +226,65 @@ contract DopexStrategy {
     /// - only works when timer is below block.timestamp
     /// @param _ssovAddress address of SSOV to purchase and write puts
     /// @param _strikeIndex strikeIndex Index of strike
-    /// @param _purchasePercent percentage you wish to purchase put with excluding premium and total fee
     function _excuteStrategy(
         address _ssovAddress,
-        uint256 _strikeIndex,
-        uint256 _purchasePercent
-    ) internal returns (uint256 purchaseAmount, uint256 writeAmount) {
+        uint256 _strikeIndex
+    )
+        internal
+        returns (
+            uint256 purchaseOption,
+            uint256 writeAmount,
+            uint256 amountUsedForPurchase
+        )
+    {
         uint256 epoch = ISSOV(_ssovAddress).currentEpoch();
         (, uint256 epochExpiry) = ISSOV(_ssovAddress).getEpochTimes(epoch);
 
         if (block.timestamp > epochExpiry) revert DopexStrategy_EpochExpired();
-
         uint256[] memory strikes = ISSOV(_ssovAddress).getEpochStrikes(epoch);
-        if (strikes[_strikeIndex] <= 0) revert DopexStrategy_InvalidStike();
 
-        purchaseAmount =
-            (IERC20(twoPool).balanceOf(address(this)) * _purchasePercent) /
-            1000;
-        uint256 premium = ISSOV(_ssovAddress).calculatePremium(
-            strikes[_strikeIndex],
-            purchaseAmount,
-            epochExpiry
-        );
+        uint256 strike = strikes[_strikeIndex];
+        if (strike <= 0) revert DopexStrategy_InvalidStike();
 
-        uint256 fee = ISSOV(_ssovAddress).calculatePurchaseFees(
-            strikes[_strikeIndex],
-            purchaseAmount
-        );
-        if (premium + fee > IERC20(twoPool).balanceOf(address(this)))
-            revert DopexStrategy_ReducePurchasePercent();
+        ISSOV.EpochStrikeData memory collateralData = ISSOV(_ssovAddress)
+            .getEpochStrikeData(epoch, strike);
 
-        IERC20(twoPool).safeApprove(
-            _ssovAddress,
-            IERC20(twoPool).balanceOf(address(this))
-        );
+        uint256 availableCollateral = collateralData
+            .lastVaultCheckpoint
+            .totalCollateral -
+            collateralData.lastVaultCheckpoint.activeCollateral;
+
+        if (0 >= availableCollateral)
+            revert DopexStrategy_NoAvailableCollateral();
+        uint256 contractBalance = IERC20(twoPool).balanceOf(address(this));
+
+        if (availableCollateral >= contractBalance) {
+            // get some options the contract can buy
+            uint256 optionUserCanAfford = (contractBalance *
+                ISSOV(_ssovAddress).getCollateralPrice() *
+                1e18) / (strike * ISSOV(_ssovAddress).collateralPrecision());
+
+            purchaseOption = getPurchaseOption(
+                _ssovAddress,
+                strike,
+                optionUserCanAfford,
+                epochExpiry,
+                contractBalance
+            );
+        } else {
+            // if contractBalance is higher than availableCollateral in the SSOV contract we buy all available options
+            purchaseOption =
+                (availableCollateral *
+                    ISSOV(_ssovAddress).getCollateralPrice() *
+                    1e18) /
+                (strike * ISSOV(_ssovAddress).collateralPrecision());
+        }
+
+        IERC20(twoPool).safeApprove(_ssovAddress, contractBalance);
+
         ISSOV(_ssovAddress).purchase(
             _strikeIndex,
-            purchaseAmount,
+            purchaseOption,
             address(this)
         );
 
@@ -268,13 +292,80 @@ contract DopexStrategy {
             address(this)
         );
 
-        if (contract2crvBalanceLeft > 0) writeAmount = contract2crvBalanceLeft;
-        ISSOV(_ssovAddress).deposit(_strikeIndex, writeAmount, address(this));
+        amountUsedForPurchase = contractBalance - contract2crvBalanceLeft;
+
+        //write puts with amount left after purchasing puts
+        if (contract2crvBalanceLeft > 0) {
+            writeAmount = contract2crvBalanceLeft;
+            ISSOV(_ssovAddress).deposit(
+                _strikeIndex,
+                writeAmount,
+                address(this)
+            );
+        }
+    }
+
+    function getPurchaseOption(
+        address _ssovAddress,
+        uint256 _strike,
+        uint256 _purchaseOption,
+        uint256 _epochExpiry,
+        uint256 _balance
+    ) internal view returns (uint256 purchaseOption) {
+        // gets initial premium and fee
+        uint256 premium = ISSOV(_ssovAddress).calculatePremium(
+            _strike,
+            _purchaseOption,
+            _epochExpiry
+        );
+
+        uint256 fee = ISSOV(_ssovAddress).calculatePurchaseFees(
+            _strike,
+            _purchaseOption
+        );
+
+        uint256 amountToPurchase = premium + fee;
+        purchaseOption = _purchaseOption;
+
+        /*
+         *  check if amountToPurchase is lower than contract balance during while loop
+         *  where contract balance is lower than SSOV total collateral 
+         *  which imply that total contract options can't be higher than
+         *  total options gotten from SSOV total collateral 
+        **/
+        while (_balance > amountToPurchase) {
+            if (amountToPurchase * 2 > _balance) {
+               /*
+                *  Once amountToPurchase can't be multiplied by 2 again
+                *  we check if adding half of the initial `premium + fee`
+                *  to amountToPurchase and see if thats lower than contract balance
+                *  if yes we add half of that and increase purchaseOption as well
+                **/
+                uint256 buySomeMore = amountToPurchase + (premium + fee) / 2;
+                if (buySomeMore > _balance) return purchaseOption;
+                else {
+                    purchaseOption = purchaseOption + (_purchaseOption / 2);
+                    return purchaseOption;
+                }
+            }
+
+            amountToPurchase = amountToPurchase * 2;
+            purchaseOption = purchaseOption * 2;
+        }
     }
 
     function changeOwner(address _newOwner) external onlyOwner {
         if (_newOwner == address(0)) revert DopexStrategy_InvalidAddress();
         s_owner = _newOwner;
+    }
+
+    function onERC721Received(
+        address,
+        address,
+        uint256,
+        bytes memory
+    ) external virtual override returns (bytes4) {
+        return this.onERC721Received.selector;
     }
 
     modifier onlyOwner() {

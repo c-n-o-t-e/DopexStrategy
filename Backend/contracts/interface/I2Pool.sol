@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.9;
 
-interface I2Pool {
+import "./IERC20.sol";
+
+interface I2Pool is IERC20 {
     function coins(uint256 arg0) external returns (address);
 
     function calc_token_amount(uint256[2] calldata amounts, bool _h)
