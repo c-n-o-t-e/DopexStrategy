@@ -1,5 +1,7 @@
 # DopexStrategy
 
+Create `.env` file from `.env.example`
+
 To test clone repo run
 `npm i`
 `npx hardhat test test/DopexStrategy.js`
