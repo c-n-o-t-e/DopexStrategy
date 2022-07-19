@@ -20,7 +20,7 @@ describe("DopexStrategy", function () {
     dopexStrategy;
 
   beforeEach(async () => {
-    await fork_network(17891638); // always get recent block number due to missing trie node error
+    await fork_network(18000495); // always get recent block number due to missing trie node error
     [deployer] = await ethers.getSigners();
 
     fourDays = 4 * 24 * 60 * 60;
@@ -234,9 +234,22 @@ describe("DopexStrategy", function () {
         .connect(deployer)
         .deposit(dpxWeeklyPutsSsovV3.address, 0, "227682646953807208607");
 
-      await dopexStrategy
+      const tx = await dopexStrategy
         .connect(deployer)
         .runStrategy(0, 800, 800, dpxWeeklyPutsSsovV3.address);
+
+      receipt = await tx.wait();
+      const lastEvent = receipt.events.length - 1;
+      const event = receipt.events[lastEvent];
+
+      console.log(`
+        contractDpxBalanceBeforeTx: ${event.args[0]}, 
+        contractUsdcBalanceBeforeTx: ${event.args[1]}, 
+        contract2PoolBalanceBeforeTx: ${event.args[2]}, 
+        amountUsedForPurchase: ${event.args[3]}, 
+        purchasedOption: ${event.args[4]}, 
+        writeAmount: ${event.args[5]}
+      `);
     });
 
     it("Should run strategy when SSOV total collateral is higher than contracts balance", async function () {
@@ -293,9 +306,22 @@ describe("DopexStrategy", function () {
         .connect(deployer)
         .deposit(dpxWeeklyPutsSsovV3.address, 0, "13375209179092108641293");
 
-      await dopexStrategy
+      const tx = await dopexStrategy
         .connect(deployer)
         .runStrategy(0, 800, 800, dpxWeeklyPutsSsovV3.address);
+
+      receipt = await tx.wait();
+      const lastEvent = receipt.events.length - 1;
+      const event = receipt.events[lastEvent];
+
+      console.log(`
+        contractDpxBalanceBeforeTx: ${event.args[0]}, 
+        contractUsdcBalanceBeforeTx: ${event.args[1]}, 
+        contract2PoolBalanceBeforeTx: ${event.args[2]}, 
+        amountUsedForPurchase: ${event.args[3]}, 
+        purchasedOption: ${event.args[4]}, 
+        writeAmount: ${event.args[5]}
+      `);
     });
   });
 });

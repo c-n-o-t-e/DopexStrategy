@@ -14,6 +14,7 @@ import "./interface/IDpxEthLpFarm.sol";
 import "./interface/ISushiSwapRouter.sol";
 import "./interface/IERC721TokenReceiver.sol";
 
+error DopexStrategy_FeeHigh();
 error DopexStrategy_NotOwner();
 error DopexStrategy_EpochExpired();
 error DopexStrategy_NotUpToAWeek();
@@ -34,7 +35,7 @@ contract DopexStrategy is ERC721TokenReceiver {
         uint256 contractUsdcBalanceBeforeTx,
         uint256 contract2PoolBalanceBeforeTx,
         uint256 amountUsedForPurchase,
-        uint256 purchaseOption,
+        uint256 purchasedOption,
         uint256 writeAmount
     );
 
@@ -117,7 +118,7 @@ contract DopexStrategy is ERC721TokenReceiver {
 
         uint256 contract2PoolBalanceBeforeTx = _getBalance(twoPool);
         (
-            uint256 purchaseOption,
+            uint256 purchasedOption,
             uint256 writeAmount,
             uint256 amountUsedForPurchase
         ) = _excuteStrategy(_ssovAddress, _strikeIndex);
@@ -131,7 +132,7 @@ contract DopexStrategy is ERC721TokenReceiver {
             contractUsdcBalanceBeforeTx,
             contract2PoolBalanceBeforeTx,
             amountUsedForPurchase,
-            purchaseOption,
+            purchasedOption,
             writeAmount
         );
     }
@@ -352,6 +353,9 @@ contract DopexStrategy is ERC721TokenReceiver {
             amountToPurchase = amountToPurchase * 2;
             purchaseOption = purchaseOption * 2;
         }
+
+        // if for some reason amountToPurchase > _balance
+        revert DopexStrategy_FeeHigh();
     }
 
     function changeOwner(address _newOwner) external onlyOwner {
