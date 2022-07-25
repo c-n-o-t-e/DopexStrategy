@@ -60,7 +60,7 @@ contract SsovV3State {
         bool expired;
     }
 
-    struct EpochStrikeData { 
+    struct EpochStrikeData {
         /// Address of the strike token
         address strikeToken;
         /// Last checkpoint for the vault for an epoch for a strike

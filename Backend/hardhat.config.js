@@ -31,4 +31,11 @@ module.exports = {
   etherscan: {
     apiKey: process.env.apiKey,
   },
+  gasReporter: {
+    currency: "USD",
+    coinmarketcap: "4421eb69-4e5f-4558-8573-8f93c0c59667",
+    token: "ETH",
+    src: "contracts",
+    enabled: true,
+  },
 };

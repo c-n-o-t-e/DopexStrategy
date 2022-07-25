@@ -36,7 +36,7 @@ contract DopexStrategy is ERC721TokenReceiver {
         uint256 contract2PoolBalanceBeforeTx,
         uint256 amountUsedForPurchase,
         uint256 purchasedOption,
-        uint256 writeAmount
+        uint256 writtenAmount
     );
 
     // s indicating variables are stored in storage
@@ -119,7 +119,7 @@ contract DopexStrategy is ERC721TokenReceiver {
         uint256 contract2PoolBalanceBeforeTx = _getBalance(twoPool);
         (
             uint256 purchasedOption,
-            uint256 writeAmount,
+            uint256 writtenAmount,
             uint256 amountUsedForPurchase
         ) = _excuteStrategy(_ssovAddress, _strikeIndex);
 
@@ -133,7 +133,7 @@ contract DopexStrategy is ERC721TokenReceiver {
             contract2PoolBalanceBeforeTx,
             amountUsedForPurchase,
             purchasedOption,
-            writeAmount
+            writtenAmount
         );
     }
 
@@ -223,14 +223,9 @@ contract DopexStrategy is ERC721TokenReceiver {
     }
 
     /// @notice excutes strategy
-    /// - this contract must be whitelisted by the SSOV contract
-    /// - only works when timer is below block.timestamp
     /// @param _ssovAddress address of SSOV to purchase and write puts
     /// @param _strikeIndex strikeIndex Index of strike
-    function _excuteStrategy(
-        address _ssovAddress,
-        uint256 _strikeIndex
-    )
+    function _excuteStrategy(address _ssovAddress, uint256 _strikeIndex)
         internal
         returns (
             uint256 purchaseOption,
@@ -265,12 +260,18 @@ contract DopexStrategy is ERC721TokenReceiver {
                 ISSOV(_ssovAddress).getCollateralPrice() *
                 1e18) / (strike * ISSOV(_ssovAddress).collateralPrecision());
 
-            purchaseOption = getPurchaseOption(
+            // gets the max option that can be bought
+            uint256 maxOption = (availableCollateral *
+                ISSOV(_ssovAddress).getCollateralPrice() *
+                1e18) / (strike * ISSOV(_ssovAddress).collateralPrecision());
+
+            purchaseOption = _getPurchaseOption(
                 _ssovAddress,
                 strike,
                 optionUserCanAfford,
                 epochExpiry,
-                contractBalance
+                contractBalance,
+                maxOption
             );
         } else {
             // if contractBalance is higher than availableCollateral in the SSOV contract we buy all available options
@@ -293,7 +294,9 @@ contract DopexStrategy is ERC721TokenReceiver {
             address(this)
         );
 
-        amountUsedForPurchase = contractBalance - contract2crvBalanceLeft;
+        unchecked {
+            amountUsedForPurchase = contractBalance - contract2crvBalanceLeft;
+        }
 
         //write puts with amount left after purchasing puts
         if (contract2crvBalanceLeft > 0) {
@@ -306,14 +309,68 @@ contract DopexStrategy is ERC721TokenReceiver {
         }
     }
 
-    function getPurchaseOption(
+    function _getPurchaseOption(
         address _ssovAddress,
         uint256 _strike,
         uint256 _purchaseOption,
         uint256 _epochExpiry,
-        uint256 _balance
+        uint256 _balance,
+        uint256 _maxOption
     ) internal view returns (uint256 purchaseOption) {
-        // gets initial premium and fee
+        uint256 purchaseCost = getPurchaseCost(
+            _ssovAddress,
+            _strike,
+            _purchaseOption,
+            _epochExpiry
+        );
+        purchaseOption = _purchaseOption;
+        if (purchaseCost > _balance) revert DopexStrategy_FeeHigh();
+
+        /**
+         *  since we have the _maxOption, we can increase purchaseOption to a certain level using _maxOption as a threshold,
+         *  also checking if purchaseCost is lower than contract balance so purchaseCost doesn't go above contract balance,
+         *  where contract balance is lower than SSOV total collateral which imply that total contract options can't be higher than
+         *  total options gotten from SSOV total collateral
+         **/
+        while (_balance > purchaseCost && _maxOption > purchaseOption) {
+            if (
+                purchaseCost * 2 > _balance || purchaseOption * 2 > _maxOption
+            ) {
+                /**
+                 *  Once purchaseOption/purchaseCost can't be multiplied by 2 again
+                 *  we check if adding half of the initial _purchaseOption
+                 *  to purchaseOption and see if that's lower than _maxOption
+                 *  if yes we add half of that
+                 **/
+                uint256 newPurchaseOption;
+                unchecked {
+                    newPurchaseOption = purchaseOption + (_purchaseOption / 2);
+                }
+
+                if (newPurchaseOption > _maxOption) return purchaseOption;
+                else {
+                    purchaseOption = newPurchaseOption;
+                    return purchaseOption;
+                }
+            }
+            unchecked {
+                purchaseOption = purchaseOption * 2;
+            }
+            purchaseCost = getPurchaseCost(
+                _ssovAddress,
+                _strike,
+                purchaseOption,
+                _epochExpiry
+            );
+        }
+    }
+
+    function getPurchaseCost(
+        address _ssovAddress,
+        uint256 _strike,
+        uint256 _purchaseOption,
+        uint256 _epochExpiry
+    ) internal view returns (uint256 fees) {
         uint256 premium = ISSOV(_ssovAddress).calculatePremium(
             _strike,
             _purchaseOption,
@@ -325,37 +382,9 @@ contract DopexStrategy is ERC721TokenReceiver {
             _purchaseOption
         );
 
-        uint256 amountToPurchase = premium + fee;
-        purchaseOption = _purchaseOption;
-
-        /*
-         *  check if amountToPurchase is lower than contract balance during while loop
-         *  where contract balance is lower than SSOV total collateral 
-         *  which imply that total contract options can't be higher than
-         *  total options gotten from SSOV total collateral 
-        **/
-        while (_balance > amountToPurchase) {
-            if (amountToPurchase * 2 > _balance) {
-               /*
-                *  Once amountToPurchase can't be multiplied by 2 again
-                *  we check if adding half of the initial `premium + fee`
-                *  to amountToPurchase and see if thats lower than contract balance
-                *  if yes we add half of that and increase purchaseOption as well
-                **/
-                uint256 buySomeMore = amountToPurchase + (premium + fee) / 2;
-                if (buySomeMore > _balance) return purchaseOption;
-                else {
-                    purchaseOption = purchaseOption + (_purchaseOption / 2);
-                    return purchaseOption;
-                }
-            }
-
-            amountToPurchase = amountToPurchase * 2;
-            purchaseOption = purchaseOption * 2;
+        unchecked {
+            fees = premium + fee;
         }
-
-        // if for some reason amountToPurchase > _balance
-        revert DopexStrategy_FeeHigh();
     }
 
     function changeOwner(address _newOwner) external onlyOwner {

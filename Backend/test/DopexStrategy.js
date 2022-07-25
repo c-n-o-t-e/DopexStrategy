@@ -20,7 +20,7 @@ describe("DopexStrategy", function () {
     dopexStrategy;
 
   beforeEach(async () => {
-    await fork_network(18000495); // always get recent block number due to missing trie node error
+    await fork_network(18539813); // always get recent block number due to missing trie node error
     [deployer] = await ethers.getSigners();
 
     fourDays = 4 * 24 * 60 * 60;
@@ -227,12 +227,12 @@ describe("DopexStrategy", function () {
       twoPoolHolder = await impersonate(addresses.twoPoolHolder);
       await I2pool.connect(twoPoolHolder).transfer(
         mockSSOV.address,
-        "227682646953807208607"
+        "20000000000000000000"
       );
 
       await mockSSOV
         .connect(deployer)
-        .deposit(dpxWeeklyPutsSsovV3.address, 0, "227682646953807208607");
+        .deposit(dpxWeeklyPutsSsovV3.address, 0, "20000000000000000000");
 
       const tx = await dopexStrategy
         .connect(deployer)
@@ -243,11 +243,11 @@ describe("DopexStrategy", function () {
       const event = receipt.events[lastEvent];
 
       console.log(`
-        contractDpxBalanceBeforeTx: ${event.args[0]}, 
-        contractUsdcBalanceBeforeTx: ${event.args[1]}, 
-        contract2PoolBalanceBeforeTx: ${event.args[2]}, 
-        amountUsedForPurchase: ${event.args[3]}, 
-        purchasedOption: ${event.args[4]}, 
+        contractDpxBalanceBeforeTx: ${event.args[0]},
+        contractUsdcBalanceBeforeTx: ${event.args[1]},
+        contract2PoolBalanceBeforeTx: ${event.args[2]},
+        amountUsedForPurchase: ${event.args[3]},
+        purchasedOption: ${event.args[4]},
         writeAmount: ${event.args[5]}
       `);
     });
