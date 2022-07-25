@@ -159,7 +159,7 @@ contract DopexStrategy is ERC721TokenReceiver {
     }
 
     /// @notice checks this contract balance
-    /// - checks balance and revert if equals to 0
+    /// - checks balance and revert if equals to/less than 0
     /// @param _token contract address to get balance from
     function _getBalance(address _token)
         internal
@@ -167,11 +167,11 @@ contract DopexStrategy is ERC721TokenReceiver {
         returns (uint256 contractBalance)
     {
         contractBalance = IERC20(_token).balanceOf(address(this));
-        if (contractBalance < 0 && _token == dpx)
+        if (contractBalance <= 0 && _token == dpx)
             revert DopexStrategy_ContractHasNoDpxToken();
-        if (contractBalance < 0 && _token == usdc)
+        if (contractBalance <= 0 && _token == usdc)
             revert DopexStrategy_ContractHasNoUsdcToken();
-        if (contractBalance < 0 && _token == twoPool)
+        if (contractBalance <= 0 && _token == twoPool)
             revert DopexStrategy_ContractHasNo2crvToken();
     }
 
